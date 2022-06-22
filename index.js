@@ -3,7 +3,6 @@ import {
   Animated,
   Dimensions,
   PanResponder,
-  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -11,7 +10,6 @@ import {
 import * as Arrow from './Arrow';
 
 const {width: screenWidth, height: screenHeight} = Dimensions.get('window');
-
 
 const MINIMUM_TRIM_DURATION = 1000;
 const MAXIMUM_TRIM_DURATION = 60000;
@@ -22,15 +20,11 @@ const SCALE_ON_INIT_TYPE = 'trim-duration';
 const SHOW_SCROLL_INDICATOR = true;
 const CENTER_ON_LAYOUT = true;
 
-const TRACK_PADDING_OFFSET = 10;
-const HANDLE_WIDTHS = 30;
-
-const MARKER_INCREMENT = 5000;
-const SPECIAL_MARKER_INCREMEMNT = 5;
+const TRACK_PADDING_OFFSET = 0;
+const HANDLE_WIDTHS = 15;
 
 const TRACK_BACKGROUND_COLOR = '#f2f6f5';
 const TRACK_BORDER_COLOR = '#c8dad3';
-const MARKER_COLOR = '#c8dad3';
 const TINT_COLOR = '#93b5b3';
 const SCRUBBER_COLOR = '#63707e';
 
@@ -106,7 +100,7 @@ export default class Trimmer extends React.Component {
         totalDuration,
       } = this.props;
 
-      const trackWidth = (screenWidth) * trackScale;
+      const trackWidth = this.props.width * trackScale;
       const calculatedScrubberPosition = (scrubberPosition / totalDuration) * trackWidth;
 
       const newScrubberPosition = ((calculatedScrubberPosition + gestureState.dx) / trackWidth) * totalDuration;
@@ -152,7 +146,7 @@ export default class Trimmer extends React.Component {
         maxTrimDuration = MAXIMUM_TRIM_DURATION,
       } = this.props;
 
-      const trackWidth = screenWidth * trackScale;
+      const trackWidth = this.props.width * trackScale;
       const calculatedTrimmerRightHandlePosition = (trimmerRightHandlePosition / totalDuration) * trackWidth;
 
       const newTrimmerRightHandlePosition = ((calculatedTrimmerRightHandlePosition + gestureState.dx) / trackWidth) * totalDuration;
@@ -211,7 +205,7 @@ export default class Trimmer extends React.Component {
         maxTrimDuration = MAXIMUM_TRIM_DURATION,
       } = this.props;
 
-      const trackWidth = (screenWidth) * trackScale;
+      const trackWidth = this.props.width * trackScale;
       const calculatedTrimmerLeftHandlePosition = (trimmerLeftHandlePosition / totalDuration) * trackWidth;
 
       const newTrimmerLeftHandlePosition = ((calculatedTrimmerLeftHandlePosition + gestureState.dx) / trackWidth) * totalDuration;
@@ -362,7 +356,6 @@ export default class Trimmer extends React.Component {
       scrubberPosition,
       trackBackgroundColor = TRACK_BACKGROUND_COLOR,
       trackBorderColor = TRACK_BORDER_COLOR,
-      markerColor = MARKER_COLOR,
       tintColor = TINT_COLOR,
       scrubberColor = SCRUBBER_COLOR,
       centerOnLayout = CENTER_ON_LAYOUT,
@@ -396,7 +389,7 @@ export default class Trimmer extends React.Component {
       trimmingRightHandleValue,
     } = this.state;
 
-    const trackWidth = screenWidth * trackScale;
+    const trackWidth = this.props.width * trackScale;
     if (isNaN(trackWidth)) {
       console.log('ERROR render() trackWidth !== number. screenWidth',
         screenWidth,
@@ -409,6 +402,7 @@ export default class Trimmer extends React.Component {
       styles.trackBackground,
       {
         width: trackWidth,
+        height: this.props.height - 40,
         backgroundColor: trackBackgroundColor,
         borderColor: trackBorderColor,
       }];
@@ -433,16 +427,7 @@ export default class Trimmer extends React.Component {
 
     const actualTrimmerWidth = (boundedTrimTime / totalDuration) * trackWidth;
     const actualTrimmerOffset = ((boundedLeftPosition / totalDuration) * trackWidth) + TRACK_PADDING_OFFSET + HANDLE_WIDTHS;
-    const actualScrubPosition = ((boundedScrubPosition / totalDuration) * trackWidth) + TRACK_PADDING_OFFSET + HANDLE_WIDTHS;
-
-    const onLayoutHandler = centerOnLayout
-      ? {
-        onLayout: () => {
-          const centerOffset = actualTrimmerOffset + (actualTrimmerWidth / 2) - (screenWidth / 2);
-          this.scrollView.scrollTo({x: centerOffset, y: 0, animated: false});
-        },
-      }
-      : null;
+    const actualScrubPosition = ((boundedScrubPosition / totalDuration) * trackWidth) + TRACK_PADDING_OFFSET + HANDLE_WIDTHS - 7;
 
     if (isNaN(actualTrimmerWidth)) {
       console.log(
@@ -454,87 +439,59 @@ export default class Trimmer extends React.Component {
         trackWidth);
     }
 
-    const markers = new Array((totalDuration / MARKER_INCREMENT) | 0).fill(0) || [];
-
     return (
-      <View style={styles.root}>
-        <ScrollView
-          ref={scrollView => this.scrollView = scrollView}
-          scrollEnabled={!trimming && !scrubbing}
-          style={[
-            styles.horizontalScrollView,
-            {transform: [{scaleX: 1.0}]},
-          ]}
-          horizontal
-          showsHorizontalScrollIndicator={showScrollIndicator}
-          {...{...this.trackPanResponder.panHandlers, ...onLayoutHandler}}
-        >
-          <View style={trackBackgroundStyles}>
-            <View style={styles.markersContainer}>
-              {
-                markers.map((m, i) => (
-                  <View
-                    key={`marker-${i}`}
-                    style={[
-                      styles.marker,
-                      i % SPECIAL_MARKER_INCREMEMNT ? {} : styles.specialMarker,
-                      i === 0 || i === markers.length - 1 ?
-                        styles.hiddenMarker :
-                        {},
-                      {backgroundColor: markerColor},
-                    ]} />
-                ))
-              }
-            </View>
-          </View>
+      <View style={[styles.root, {width: this.props.width, height: this.props.height}]}>
+        <View style={trackBackgroundStyles}>
+          {this.props.renderBackground ? this.props.renderBackground() : null}
+        </View>
+        {
+          typeof scrubberPosition === 'number'
+            ? (
+              <View style={[
+                styles.scrubberContainer,
+                {left: actualScrubPosition},
+              ]}
+                    hitSlop={{top: 0, bottom: 0, right: 0, left: 0}}
+                    {...this.scrubHandlePanResponder.panHandlers}
+              >
+                <View
+                  style={[styles.scrubberHead, {backgroundColor: scrubberColor}]}
+                />
+                <View style={[styles.scrubberTail,
+                  {backgroundColor: scrubberColor, height: this.props.height - 17,}]} />
+              </View>
+            )
+            : null
+        }
+        <View {...this.leftHandlePanResponder.panHandlers} style={[
+          styles.handle,
+          styles.leftHandle,
           {
-            typeof scrubberPosition === 'number'
-              ? (
-                <View style={[
-                  styles.scrubberContainer,
-                  {left: actualScrubPosition},
-                ]}
-                      hitSlop={{top: 8, bottom: 8, right: 8, left: 8}}
-                      {...this.scrubHandlePanResponder.panHandlers}
-                >
-                  <View
-                    style={[styles.scrubberHead,
-                      {backgroundColor: scrubberColor}]}
-                  />
-                  <View style={[styles.scrubberTail,
-                    {backgroundColor: scrubberColor}]} />
-                </View>
-              )
-              : null
-          }
-          <View {...this.leftHandlePanResponder.panHandlers} style={[
-            styles.handle,
-            styles.leftHandle,
-            {
-              backgroundColor: tintColor,
-              left: actualTrimmerOffset - HANDLE_WIDTHS,
-            },
-          ]}>
-            <Arrow.Left />
-          </View>
-          <View style={[
-            styles.trimmer,
-            {width: actualTrimmerWidth, left: actualTrimmerOffset},
-            {borderColor: tintColor},
-          ]}>
-            <View style={[styles.selection, {backgroundColor: tintColor}]} />
-          </View>
-          <View {...this.rightHandlePanResponder.panHandlers} style={[
-            styles.handle,
-            styles.rightHandle,
-            {
-              backgroundColor: tintColor,
-              left: actualTrimmerOffset + actualTrimmerWidth,
-            },
-          ]}>
-            <Arrow.Right />
-          </View>
-        </ScrollView>
+            height: this.props.height - 34,
+            backgroundColor: tintColor,
+            left: actualTrimmerOffset - HANDLE_WIDTHS,
+          },
+        ]}>
+          <Arrow.Left />
+        </View>
+        <View style={[
+          styles.trimmer,
+          {width: actualTrimmerWidth, height: this.props.height - 34, left: actualTrimmerOffset},
+          {borderColor: tintColor},
+        ]}>
+          <View style={[styles.selection, {backgroundColor: tintColor}]} />
+        </View>
+        <View {...this.rightHandlePanResponder.panHandlers} style={[
+          styles.handle,
+          styles.rightHandle,
+          {
+            height: this.props.height - 34,
+            backgroundColor: tintColor,
+            left: actualTrimmerOffset + actualTrimmerWidth,
+          },
+        ]}>
+          <Arrow.Right />
+        </View>
       </View>
     );
   }
@@ -542,12 +499,6 @@ export default class Trimmer extends React.Component {
 
 const styles = StyleSheet.create({
   root: {
-    height: 140,
-  },
-  horizontalScrollView: {
-    height: 140,
-    overflow: 'hidden',
-    position: 'relative',
   },
   trackBackground: {
     overflow: 'hidden',
@@ -556,7 +507,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: TRACK_BORDER_COLOR,
-    height: 100,
     marginHorizontal: HANDLE_WIDTHS + TRACK_PADDING_OFFSET,
   },
   trimmer: {
@@ -565,12 +515,10 @@ const styles = StyleSheet.create({
     top: 17,
     borderColor: TINT_COLOR,
     borderWidth: 3,
-    height: 106,
   },
   handle: {
     position: 'absolute',
     width: HANDLE_WIDTHS,
-    height: 106,
     backgroundColor: TINT_COLOR,
     top: 17,
   },
@@ -587,25 +535,6 @@ const styles = StyleSheet.create({
     backgroundColor: TINT_COLOR,
     width: '100%',
     height: '100%',
-  },
-  markersContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    height: '100%',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  marker: {
-    backgroundColor: MARKER_COLOR, // marker color,
-    width: 2,
-    height: 8,
-    borderRadius: 2,
-  },
-  specialMarker: {
-    height: 22,
-  },
-  hiddenMarker: {
-    opacity: 0,
   },
   scrubberContainer: {
     zIndex: 1,
@@ -624,7 +553,6 @@ const styles = StyleSheet.create({
   },
   scrubberTail: {
     backgroundColor: SCRUBBER_COLOR,
-    height: 123,
     width: 3,
     borderBottomLeftRadius: 3,
     borderBottomRightRadius: 3,
